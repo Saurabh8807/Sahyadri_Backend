@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const fs = require('fs');
 const csv = require('csv-parser');
 const User = require('./db/user');
+const rooms = require('./db/rooms');
+
 const { Transform } = require('stream');
 const mysql = require('mysql2');
 
@@ -36,65 +38,69 @@ app.get(('/'),(req,res)=>{
   res.send("h")
 })
 
-
-function createConnection() {
-  return mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'admin',
-    database: 'hotelreservation'
-  });
-}
-
-let connection;
-connection = createConnection();
-
-app.get('/admin/rooms', (req, res) => {
-  // Execute the SQL query using the existing connection
-  const query = 'SELECT id,assigned_room_type, occupancy_status FROM hotelReservation';
-  connection.query(query, (error, results) => {
-    if (error) {
-      console.error('Error retrieving data from MySQL table:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    } else {
-      res.json(results);
-    }
-  });
+// Example route to get all reservations
+app.get('/admin/rooms', async (req, res) => {
+  try {
+    const allRooms = await rooms.find();
+    res.json(allRooms);
+  } catch (error) {
+    console.error('Error fetching rooms:', error);
+    res.status(500).json({ error: 'An error occurred' });
+  }
 });
 
-app.get('/admin/rooms/:rowNumber', (req, res) => {
-  const rowNumber = parseInt(req.params.rowNumber);
+// ... other routes
 
-  // Execute the SQL query using the existing connection
-  const query = `SELECT * FROM hotelReservation LIMIT ${rowNumber - 1}, 1`;
-  connection.query(query, (error, results) => {
-    if (error) {
-      console.error('Error retrieving row from MySQL table:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    } else if (results.length === 0) {
-      res.status(404).json({ error: 'Row not found' });
-    } else {
-      res.json(results[0]);
+//xample route to get a reservation by ID
+// Example route to get a room by ID
+// Example route to get a room by "No."
+app.get('/admin/rooms/:roomNo', async (req, res) => {
+  try {
+    const { roomNo } = req.params;
+
+    // Convert roomNo to a number
+    const roomNumber = parseInt(roomNo);
+    const room = await rooms.findOne({ "No": roomNumber }); // Use your rooms model
+    
+    if (!room) {
+      console.log(roomNumber)
+      res.status(404).json({ error: 'Room not found' });
+      return;
     }
-  });
+
+    res.json(room);
+  } catch (error) {
+    console.error('Error fetching room:', error);
+    res.status(500).json({ error: 'An error occurred' });
+  }
 });
 
-app.put('/admin/rooms/:roomNumber', (req, res) => {
-  const roomNumber = parseInt(req.params.roomNumber);
-  const updatedData = req.body;
 
-  // Execute the SQL query using the existing connection
-  const query = `UPDATE hotelReservation SET ? WHERE id = ?`;
-  connection.query(query, [updatedData, roomNumber], (error, results) => {
-    if (error) {
-      console.error('Error updating row in MySQL table:', error);
-      res.status(500).json({ error: 'Internal Server Error' });
-    } else if (results.affectedRows === 0) {
-      res.status(404).json({ error: 'Row not found' });
-    } else {
-      res.json(updatedData);
+// Example route to update a room by "No."
+app.put('/admin/rooms/:roomNo', async (req, res) => {
+  try {
+    const { roomNo } = req.params;
+
+    // Convert roomNo to a number
+    const roomNumber = parseInt(roomNo);
+
+    // Find the room by "No." and update it
+    const updatedRoom = await rooms.findOneAndUpdate(
+      { "No": roomNumber },
+      req.body, // Use the request body to update the room
+      { new: true } // This option returns the updated document
+    );
+
+    if (!updatedRoom) {
+      res.status(404).json({ error: 'Room not found' });
+      return;
     }
-  });
+
+    res.json(updatedRoom);
+  } catch (error) {
+    console.error('Error updating room:', error);
+    res.status(500).json({ error: 'An error occurred' });
+  }
 });
 
 app.get('/admin/users', async (req, res) => {
